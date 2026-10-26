@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Streamlit API Testing Workbench</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        streamlit: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                            700: '#be123c',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .code-font { font-family: 'Fira Code', monospace; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.8); }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Top Navigation Bar (Streamlit style header) -->
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-4 lg:px-8 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-streamlit-600 to-amber-500 p-2 rounded-xl text-white shadow-md shadow-streamlit-500/20">
+                <i data-lucide="cpu" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h1 class="font-bold text-lg tracking-tight">API Workbench</h1>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-streamlit-500/10 text-streamlit-600 dark:text-streamlit-500 font-semibold border border-streamlit-500/20">Python + Streamlit Core</span>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">High-performance lightweight API testing & inspection suite</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- Sample APIs Dropdown -->
+            <div class="relative">
+                <select id="sampleApiSelect" onchange="loadSampleApi(this.value)" class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-streamlit-500 cursor-pointer">
+                    <option value="">⚡ Load Sample API...</option>
+                    <option value="jsonplaceholder_get">GET Users (JSONPlaceholder)</option>
+                    <option value="jsonplaceholder_post">POST Create Post (JSONPlaceholder)</option>
+                    <option value="httpbin_get">GET Request Inspector (Httpbin)</option>
+                    <option value="httpbin_post">POST Echo Payload (Httpbin)</option>
+                    <option value="httpbin_delay">GET Slow Response / Latency Test</option>
+                </select>
+            </div>
+
+            <!-- Theme Toggle -->
+            <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Toggle Theme">
+                <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+                <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+            </button>
+
+            <!-- Export / Import History -->
+            <button onclick="exportHistory()" class="hidden sm:flex items-center space-x-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Export Log</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="flex-1 flex flex-col lg:flex-row">
+        
+        <!-- Sidebar: History & Saved Requests -->
+        <aside class="w-full lg:w-80 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 flex flex-col">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="history" class="w-4 h-4 text-streamlit-500"></i>
+                    <h2 class="font-semibold text-sm">Request History</h2>
+                </div>
+                <div class="flex items-center space-x-1">
+                    <button onclick="clearHistory()" class="text-xs text-slate-400 hover:text-red-500 p-1 rounded transition" title="Clear History">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search History -->
+            <div class="p-3 border-b border-slate-200 dark:border-slate-800">
+                <div class="relative">
+                    <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400"></i>
+                    <input type="text" id="historySearch" oninput="filterHistory(this.value)" placeholder="Search history..." class="w-full text-xs bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-streamlit-500">
+                </div>
+            </div>
+
+            <!-- History List Container -->
+            <div id="historyList" class="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 p-2 space-y-1">
+                <!-- Dynamically populated -->
+            </div>
+            
+            <!-- Quick Analytics Summary Card in Sidebar -->
+            <div class="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+                    <span>Total Requests Made:</span>
+                    <span id="statTotalReqs" class="font-semibold text-slate-700 dark:text-slate-200">0</span>
+                </div>
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>Avg Latency:</span>
+                    <span id="statAvgLatency" class="font-semibold text-slate-700 dark:text-slate-200">0 ms</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center / Right: Request Builder & Response Workbench -->
+        <main class="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto space-y-6">
+            
+            <!-- Request Builder Card -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="send" class="w-4 h-4 text-streamlit-500"></i>
+                        <h2 class="font-semibold text-sm">API Request Config</h2>
+                    </div>
+                    <span class="text-xs text-slate-400">Python `requests` execution engine simulated</span>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    <!-- Method & URL Bar -->
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select id="reqMethod" onchange="onMethodChange()" class="w-full sm:w-36 font-semibold text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-streamlit-500 cursor-pointer">
+                            <option value="GET" class="text-emerald-500 font-bold">GET</option>
+                            <option value="POST" class="text-blue-500 font-bold">POST</option>
+                            <option value="PUT" class="text-amber-500 font-bold">PUT</option>
+                            <option value="DELETE" class="text-red-500 font-bold">DELETE</option>
+                            <option value="PATCH" class="text-purple-500 font-bold">PATCH</option>
+                        </select>
+                        <div class="relative flex-1">
+                            <input type="text" id="reqUrl" placeholder="https://api.example.com/v1/resource" class="w-full text-xs code-font bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-streamlit-500">
+                        </div>
+                        <button onclick="sendRequest()" id="sendBtn" class="bg-gradient-to-r from-streamlit-600 to-rose-500 hover:from-streamlit-700 hover:to-rose-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-streamlit-500/25 flex items-center justify-center space-x-2 transition transform active:scale-95 text-xs">
+                            <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                            <span>Send Request</span>
+                        </button>
+                    </div>
+
+                    <!-- Tabs for Headers & Payload -->
+                    <div class="border-b border-slate-200 dark:border-slate-800 flex space-x-6 text-xs font-medium">
+                        <button onclick="switchConfigTab('headers')" id="tabHeadersBtn" class="pb-3 border-b-2 border-streamlit-500 text-streamlit-600 dark:text-streamlit-500 flex items-center space-x-1.5 transition">
+                            <i data-lucide="key" class="w-3.5 h-3.5"></i>
+                            <span>Custom Headers (<span id="headerCount">1</span>)</span>
+                        </button>
+                        <button onclick="switchConfigTab('payload')" id="tabPayloadBtn" class="pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center space-x-1.5 transition">
+                            <i data-lucide="file-json" class="w-3.5 h-3.5"></i>
+                            <span>JSON Payload</span>
+                        </button>
+                        <button onclick="switchConfigTab('params')" id="tabParamsBtn" class="pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center space-x-1.5 transition">
+                            <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+                            <span>Query Params</span>
+                        </button>
+                    </div>
+
+                    <!-- Tab Contents -->
+                    <div id="configHeaders" class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-400">Key-value headers sent with request (e.g., Authorization, Content-Type)</span>
+                            <button onclick="addHeaderRow()" class="text-xs text-streamlit-600 dark:text-streamlit-500 hover:underline flex items-center space-x-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i><span>Add Header</span>
+                            </button>
+                        </div>
+                        <div id="headersContainer" class="space-y-2">
+                            <div class="flex items-center space-x-2 header-row">
+                                <input type="text" placeholder="Header Key (e.g. Authorization)" value="Content-Type" class="flex-1 text-xs code-font bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+                                <input type="text" placeholder="Header Value" value="application/json" class="flex-1 text-xs code-font bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+                                <button onclick="removeRow(this)" class="p-2 text-slate-400 hover:text-red-500 rounded-lg"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="configPayload" class="space-y-2 hidden">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-400">JSON request body for POST/PUT/PATCH methods</span>
+                            <button onclick="formatJsonPayload()" class="text-xs text-streamlit-600 dark:text-streamlit-500 hover:underline">Format JSON</button>
+                        </div>
+                        <textarea id="reqPayload" rows="5" class="w-full text-xs code-font bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-streamlit-500" placeholder='{
+  "name": "Streamlit Developer",
+  "role": "API Tester"
+}'></textarea>
+                    </div>
+
+                    <div id="configParams" class="space-y-3 hidden">
+                        <span class="text-xs text-slate-400">URL query parameters (appended automatically)</span>
+                        <textarea id="reqParams" rows="3" class="w-full text-xs code-font bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-streamlit-500" placeholder="page=1&limit=10"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Response Inspector & Analytics Workbench -->
+            <div id="responseSection" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden hidden">
+                <!-- Response Metrics Bar -->
+                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center space-x-3">
+                        <span id="badgeStatus" class="px-3 py-1 rounded-full text-xs font-bold border">--</span>
+                        <div class="flex items-center space-x-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                            <span id="metricTime">-- ms</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            <i data-lucide="database" class="w-3.5 h-3.5"></i>
+                            <span id="metricSize">-- KB</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        <button onclick="copyResponseBody()" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center space-x-1 transition">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span>Copy JSON</span>
+                        </button>
+                        <button onclick="downloadResponse()" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center space-x-1 transition">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                            <span>Save .json</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Response View Tabs -->
+                <div class="border-b border-slate-200 dark:border-slate-800 px-6 flex space-x-6 text-xs font-medium">
+                    <button onclick="switchRespTab('json')" id="respTabJsonBtn" class="py-3 border-b-2 border-streamlit-500 text-streamlit-600 dark:text-streamlit-500 flex items-center space-x-1.5 transition">
+                        <i data-lucide="code" class="w-3.5 h-3.5"></i>
+                        <span>JSON Inspector</span>
+                    </button>
+                    <button onclick="switchRespTab('table')" id="respTabTableBtn" class="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center space-x-1.5 transition">
+                        <i data-lucide="table" class="w-3.5 h-3.5"></i>
+                        <span>Pandas DataFrame View</span>
+                    </button>
+                    <button onclick="switchRespTab('headers')" id="respTabHeadersBtn" class="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center space-x-1.5 transition">
+                        <i data-lucide="list" class="w-3.5 h-3.5"></i>
+                        <span>Response Headers</span>
+                    </button>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="p-6">
+                    <!-- JSON Tab -->
+                    <div id="respJsonView" class="relative">
+                        <div class="absolute right-3 top-3 flex items-center space-x-2">
+                            <span class="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">Pretty JSON</span>
+                        </div>
+                        <pre id="jsonOutput" class="code-font text-xs bg-slate-50 dark:bg-slate-950 p-4 rounded-xl overflow-x-auto max-h-96 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300"></pre>
+                    </div>
+
+                    <!-- Pandas Table View Tab -->
+                    <div id="respTableView" class="hidden space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-500 dark:text-slate-400">Tabular representation (auto-flattened arrays/objects)</span>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="tableFilter" oninput="filterTable()" placeholder="Filter rows..." class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 focus:outline-none">
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl max-h-96">
+                            <table id="pandasTable" class="w-full text-left text-xs divide-y divide-slate-200 dark:divide-slate-800">
+                                <thead id="tableHead" class="bg-slate-50 dark:bg-slate-900 font-semibold text-slate-600 dark:text-slate-300"></thead>
+                                <tbody id="tableBody" class="divide-y divide-slate-100 dark:divide-slate-800/50"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Response Headers Tab -->
+                    <div id="respHeadersView" class="hidden">
+                        <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
+                            <table class="w-full text-left text-xs divide-y divide-slate-200 dark:divide-slate-800">
+                                <thead class="bg-slate-50 dark:bg-slate-900 font-semibold">
+                                    <tr>
+                                        <th class="p-3">Header Name</th>
+                                        <th class="p-3">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="respHeadersBody" class="divide-y divide-slate-100 dark:divide-slate-800/50 code-font"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plotly Performance Analytics Section -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 text-streamlit-500"></i>
+                        <h3 class="font-semibold text-sm">Performance & Latency Analytics (Plotly-style)</h3>
+                    </div>
+                    <span class="text-xs text-slate-400">Real-time session metrics</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Latency Trend Chart -->
+                    <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Request Latency Trend (ms)</span>
+                        <div id="latencyChart" class="h-44 flex items-end space-x-2 pt-4 pb-2 px-2 border-b border-slate-200 dark:border-slate-800">
+                            <!-- Bars populated via JS -->
+                            <div class="w-full text-center text-xs text-slate-400 py-12">No requests tested yet</div>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-slate-400 mt-2">
+                            <span>Chronological Sequence</span>
+                            <span id="chartMaxLatency">Peak: 0ms</span>
+                        </div>
+                    </div>
+
+                    <!-- Status Distribution Chart -->
+                    <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">HTTP Status Distribution</span>
+                        <div id="statusChart" class="h-44 flex items-center justify-center">
+                            <div class="text-center text-xs text-slate-400">Run requests to view status breakdown</div>
+                        </div>
+                        <div class="flex justify-center space-x-4 text-[10px] text-slate-400 mt-2">
+                            <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>2xx Success</span></span>
+                            <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span><span>4xx/5xx Errors</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-2xl text-xs font-medium transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-2 z-50">
+        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toastMsg">Action completed successfully</span>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Application State
+        let requestHistory = JSON.parse(localStorage.getItem('streamlit_api_history') || '[]');
+        let currentResponseData = null;
+        let currentResponseHeaders = null;
+        let activeConfigTab = 'headers';
+        let activeRespTab = 'json';
+
+        // Sample API presets
+        const sampleApis = {
+            jsonplaceholder_get: {
+                method: 'GET',
+                url: 'https://jsonplaceholder.typicode.com/users',
+                headers: { 'Content-Type': 'application/json' },
+                payload: ''
+            },
+            jsonplaceholder_post: {
+                method: 'POST',
+                url: 'https://jsonplaceholder.typicode.com/posts',
+                headers: { 'Content-Type': 'application/json' },
+                payload: JSON.stringify({ title: 'Streamlit Workbench', body: 'Testing POST request effortlessly', userId: 1 }, null, 2)
+            },
+            httpbin_get: {
+                method: 'GET',
+                url: 'https://httpbin.org/get?workbench=python',
+                headers: { 'X-Workbench-Client': 'Streamlit-Simulation' },
+                payload: ''
+            },
+            httpbin_post: {
+                method: 'POST',
+                url: 'https://httpbin.org/post',
+                headers: { 'Content-Type': 'application/json' },
+                payload: JSON.stringify({ message: 'Hello from Streamlit API Workbench', status: 'Active' }, null, 2)
+            },
+            httpbin_delay: {
+                method: 'GET',
+                url: 'https://httpbin.org/delay/1',
+                headers: { 'Accept': 'application/json' },
+                payload: ''
+            }
+        };
+
+        function loadSampleApi(key) {
+            if (!key || !sampleApis[key]) return;
+            const api = sampleApis[key];
+            document.getElementById('reqMethod').value = api.method;
+            document.getElementById('reqUrl').value = api.url;
+            document.getElementById('reqPayload').value = api.payload;
+            
+            if(api.payload) {
+                switchConfigTab('payload');
+            } else {
+                switchConfigTab('headers');
+            }
+            showToast(`Loaded preset: ${key}`);
+        }
+
+        // Theme Toggle
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Check stored theme
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        }
+
+        // Tab Switching Logic
+        function switchConfigTab(tab) {
+            activeConfigTab = tab;
+            ['headers', 'payload', 'params'].forEach(t => {
+                const btn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+                const content = document.getElementById(`config${t.charAt(0).toUpperCase() + t.slice(1)}`);
+                if (t === tab) {
+                    btn.className = "pb-3 border-b-2 border-streamlit-500 text-streamlit-600 dark:text-streamlit-500 flex items-center space-x-1.5 transition";
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = "pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center space-x-1.5 transition";
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        function switchRespTab(tab) {
+            activeRespTab = tab;
+            ['json', 'table', 'headers'].forEach(t => {
+                const btn = document.getElementById(`respTab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+                const content = document.getElementById(`resp${t.charAt(0).toUpperCase() + t.slice(1)}View`);
+                if (t === tab) {
+                    btn.className = "py-3 border-b-2 border-streamlit-500 text-streamlit-600 dark:text-streamlit-500 flex items-center space-x-1.5 transition";
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = "py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center space-x-1.5 transition";
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        function onMethodChange() {
+            const method = document.getElementById('reqMethod').value;
+            if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                switchConfigTab('payload');
+            }
+        }
+
+        // Dynamic Headers Management
+        function addHeaderRow() {
+            const container = document.getElementById('headersContainer');
+            const row = document.createElement('div');
+            row.className = "flex items-center space-x-2 header-row";
+            row.innerHTML = `
+                <input type="text" placeholder="Header Key" class="flex-1 text-xs code-font bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+                <input type="text" placeholder="Header Value" class="flex-1 text-xs code-font bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+                <button onclick="removeRow(this)" class="p-2 text-slate-400 hover:text-red-500 rounded-lg"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+            `;
+            container.appendChild(row);
+            lucide.createIcons();
+            updateHeaderCount();
+        }
+
+        function removeRow(btn) {
+            btn.closest('.header-row').remove();
+            updateHeaderCount();
+        }
+
+        function updateHeaderCount() {
+            const count = document.querySelectorAll('.header-row').length;
+            document.getElementById('headerCount').innerText = count;
+        }
+
+        function formatJsonPayload() {
+            const textarea = document.getElementById('reqPayload');
+            try {
+                const parsed = JSON.parse(textarea.value);
+                textarea.value = JSON.stringify(parsed, null, 2);
+                showToast('JSON payload formatted');
+            } catch (e) {
+                showToast('Invalid JSON format', 'error');
+            }
+        }
+
+        // Send Request Simulation & Live Fetch Execution
+        async function sendRequest() {
+            const method = document.getElementById('reqMethod').value;
+            let url = document.getElementById('reqUrl').value.trim();
+            const payloadStr = document.getElementById('reqPayload').value.trim();
+            const paramsStr = document.getElementById('reqParams').value.trim();
+
+            if (!url) {
+                showToast('Please enter a valid target URL', 'error');
+                return;
+            }
+
+            if (paramsStr) {
+                url += (url.includes('?') ? '&' : '?') + paramsStr;
+            }
+
+            // Collect headers
+            const headers = {};
+            document.querySelectorAll('.header-row').forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const key = inputs[0].value.trim();
+                const val = inputs[1].value.trim();
+                if (key) headers[key] = val;
+            });
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Executing...</span>`;
+            lucide.createIcons();
+
+            const startTime = performance.now();
+
+            try {
+                const options = {
+                    method: method,
+                    headers: headers
+                };
+
+                if (['POST', 'PUT', 'PATCH'].includes(method) && payloadStr) {
+                    options.body = payloadStr;
+                }
+
+                const response = await fetch(url, options);
+                const endTime = performance.now();
+                const latency = Math.round(endTime - startTime);
+
+                const status = response.status;
+                const statusText = response.statusText;
+                
+                // Extract response headers
+                const respHeaders = {};
+                response.headers.forEach((val, key) => {
+                    respHeaders[key] = val;
+                });
+                currentResponseHeaders = respHeaders;
+
+                let responseData;
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    responseData = await response.json();
+                } else {
+                    const textData = await response.text();
+                    try {
+                        responseData = JSON.parse(textData);
+                    } catch (e) {
+                        responseData = { rawText: textData };
+                    }
+                }
+
+                currentResponseData = responseData;
+                const payloadSize = Math.round(JSON.stringify(responseData).length / 1024 * 100) / 100;
+
+                // Display response section
+                renderResponse(status, statusText, latency, payloadSize, responseData, respHeaders);
+                
+                // Save to History
+                saveToHistory({
+                    id: Date.now(),
+                    method,
+                    url,
+                    status,
+                    latency,
+                    size: payloadSize,
+                    timestamp: new Date().toLocaleTimeString(),
+                    data: responseData
+                });
+
+                showToast(`Request completed with status ${status}`);
+            } catch (error) {
+                const endTime = performance.now();
+                const latency = Math.round(endTime - startTime);
+                
+                const errData = { error: error.message, hint: 'CORS or Network connectivity issue. Try Httpbin or JSONPlaceholder presets.' };
+                currentResponseData = errData;
+                renderResponse(0, 'Network Error', latency, 0.1, errData, {});
+                showToast('Request failed. Check console / CORS.', 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i><span>Send Request</span>`;
+                lucide.createIcons();
+            }
+        }
+
+        // Render Response Results
+        function renderResponse(status, statusText, latency, size, data, headers) {
+            const respSection = document.getElementById('responseSection');
+            respSection.classList.remove('hidden');
+
+            // Status Badge
+            const badge = document.getElementById('badgeStatus');
+            badge.innerText = `${status || 'ERR'} ${statusText}`;
+            if (status >= 200 && status < 300) {
+                badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20";
+            } else if (status >= 400) {
+                badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20";
+            } else {
+                badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20";
+            }
+
+            document.getElementById('metricTime').innerText = `${latency} ms`;
+            document.getElementById('metricSize').innerText = `${size} KB`;
+
+            // JSON View
+            document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 2);
+
+            // Pandas Table View
+            renderPandasTable(data);
+
+            // Response Headers View
+            const headersBody = document.getElementById('respHeadersBody');
+            headersBody.innerHTML = '';
+            for (const [k, v] of Object.entries(headers)) {
+                headersBody.innerHTML += `<tr><td class="p-3 font-semibold text-slate-700 dark:text-slate-300">${k}</td><td class="p-3 text-slate-500 dark:text-slate-400">${v}</td></tr>`;
+            }
+
+            // Scroll to response
+            respSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Pandas-like Table Grid Renderer
+        function renderPandasTable(data) {
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            let rows = [];
+            if (Array.isArray(data)) {
+                rows = data;
+            } else if (data && typeof data === 'object') {
+                // Check if data contains an array property (common in APIs like { users: [...] })
+                const arrayKey = Object.keys(data).find(k => Array.isArray(data[k]));
+                if (arrayKey) {
+                    rows = data[arrayKey];
+                } else {
+                    rows = [data]; // single object
+                }
+            }
+
+            if (rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">No tabular data format detected</td></tr>`;
+                return;
+            }
+
+            // Extract columns from first row (flattening 1 level if needed)
+            const sample = rows[0];
+            const keys = Object.keys(sample).slice(0, 8); // Limit columns for cleanliness
+
+            let headHtml = '<tr>';
+            keys.forEach(k => {
+                headHtml += `<th class="p-3">${k}</th>`;
+            });
+            headHtml += '</tr>';
+            thead.innerHTML = headHtml;
+
+            rows.forEach((row, idx) => {
+                let trHtml = `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">`;
+                keys.forEach(k => {
+                    let val = row[k];
+                    if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
+                    trHtml += `<td class="p-3 truncate max-w-xs text-slate-600 dark:text-slate-300" title="${val || ''}">${val !== undefined ? val : ''}</td>`;
+                });
+                trHtml += `</tr>`;
+                tbody.innerHTML += trHtml;
+            });
+        }
+
+        function filterTable() {
+            const query = document.getElementById('tableFilter').value.toLowerCase();
+            const rows = document.querySelectorAll('#tableBody tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            });
+        }
+
+        // History Management & Analytics
+        function saveToHistory(req) {
+            requestHistory.unshift(req);
+            if (requestHistory.length > 30) requestHistory.pop(); // Cap at 30
+            localStorage.setItem('streamlit_api_history', JSON.stringify(requestHistory));
+            renderHistory();
+            updateAnalytics();
+        }
+
+        function renderHistory(filter = '') {
+            const list = document.getElementById('historyList');
+            list.innerHTML = '';
+
+            const filtered = requestHistory.filter(h => h.url.toLowerCase().includes(filter.toLowerCase()) || h.method.toLowerCase().includes(filter.toLowerCase()));
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">No history logs found</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const badgeColor = item.status >= 200 && item.status < 300 ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10';
+                const methodColor = item.method === 'GET' ? 'text-emerald-600' : item.method === 'POST' ? 'text-blue-600' : 'text-amber-600';
+                
+                const div = document.createElement('div');
+                div.className = "p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition border border-transparent hover:border-slate-200 dark:hover:border-slate-800 flex items-center justify-between group";
+                div.onclick = () => loadHistoryItem(item.id);
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded ${methodColor} bg-slate-100 dark:bg-slate-800">${item.method}</span>
+                        <div class="min-w-0">
+                            <p class="text-xs font-medium truncate max-w-[150px] text-slate-700 dark:text-slate-200">${item.url}</p>
+                            <span class="text-[10px] text-slate-400">${item.timestamp} · ${item.latency}ms</span>
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded ${badgeColor}">${item.status}</span>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function filterHistory(val) {
+            renderHistory(val);
+        }
+
+        function loadHistoryItem(id) {
+            const item = requestHistory.find(h => h.id === id);
+            if (!item) return;
+            document.getElementById('reqMethod').value = item.method;
+            document.getElementById('reqUrl').value = item.url;
+            currentResponseData = item.data;
+            renderResponse(item.status, 'OK', item.latency, item.size, item.data, {});
+            showToast('Loaded request from history');
+        }
+
+        function clearHistory() {
+            requestHistory = [];
+            localStorage.removeItem('streamlit_api_history');
+            renderHistory();
+            updateAnalytics();
+            showToast('History cleared');
+        }
+
+        // Plotly-style Analytics Chart Rendering
+        function updateAnalytics() {
+            const total = requestHistory.length;
+            document.getElementById('statTotalReqs').innerText = total;
+
+            if (total === 0) {
+                document.getElementById('statAvgLatency').innerText = '0 ms';
+                return;
+            }
+
+            const totalLatency = requestHistory.reduce((acc, curr) => acc + curr.latency, 0);
+            const avgLatency = Math.round(totalLatency / total);
+            document.getElementById('statAvgLatency').innerText = `${avgLatency} ms`;
+
+            // Render Latency Trend Chart
+            const latencyChart = document.getElementById('latencyChart');
+            const maxLat = Math.max(...requestHistory.map(h => h.latency), 100);
+            document.getElementById('chartMaxLatency').innerText = `Peak: ${maxLat}ms`;
+
+            let barsHtml = '';
+            const recentReqs = [...requestHistory].reverse().slice(-10); // Last 10
+            recentReqs.forEach(req => {
+                const heightPct = Math.max(Math.round((req.latency / maxLat) * 100), 10);
+                const color = req.status >= 200 && req.status < 300 ? 'bg-streamlit-500 hover:bg-streamlit-600' : 'bg-amber-500';
+                barsHtml += `
+                    <div class="flex-1 flex flex-col items-center h-full justify-end group relative">
+                        <div class="absolute -top-8 bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap z-10">
+                            ${req.method}: ${req.latency}ms (${req.status})
+                        </div>
+                        <div class="w-full rounded-t transition-all duration-300 ${color}" style="height: ${heightPct}%"></div>
+                    </div>
+                `;
+            });
+            latencyChart.innerHTML = barsHtml;
+
+            // Render Status Distribution Donut/Bar
+            const successCount = requestHistory.filter(h => h.status >= 200 && h.status < 300).length;
+            const errorCount = total - successCount;
+            const successPct = Math.round((successCount / total) * 100);
+
+            const statusChart = document.getElementById('statusChart');
+            statusChart.innerHTML = `
+                <div class="flex flex-col items-center justify-center space-y-2">
+                    <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">${successPct}%</div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Success Rate (${successCount}/${total} requests)</p>
+                    <div class="w-48 bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+                        <div class="bg-emerald-500 h-full" style="width: ${successPct}%"></div>
+                        <div class="bg-amber-500 h-full" style="width: ${100 - successPct}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Export and Utilities
+        function exportHistory() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(requestHistory, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `api_workbench_logs_${Date.now()}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showToast('Exported history logs successfully');
+        }
+
+        function copyResponseBody() {
+            if (!currentResponseData) return;
+            const str = JSON.stringify(currentResponseData, null, 2);
+            const textarea = document.createElement('textarea');
+            textarea.value = str;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+            showToast('Response JSON copied to clipboard');
+        }
+
+        function downloadResponse() {
+            if (!currentResponseData) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentResponseData, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `api_response_${Date.now()}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showToast('Response JSON file saved');
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Initial setup
+        renderHistory();
+        updateAnalytics();
+    </script>
+</body>
+</html>
